@@ -4,5 +4,6 @@ def sendData(conn, data):
 
 
 def recvData(conn):
-    data = conn.recv(1024).decode().split(",")
+    data = conn.recv(1024).decode()
+    data = data.split(",")
     return (int(data[0]), int(data[1]), int(data[2]))

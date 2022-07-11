@@ -2,7 +2,7 @@ import socket
 import util
 from _thread import *
 
-clientstate = ["15,15,0", "1700,945,0"]
+clientstate = [(15, 15, 0), (1700, 945, 0)]
 
 
 def threaded_client(conn, pIndex):

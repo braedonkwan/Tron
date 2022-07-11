@@ -5,7 +5,6 @@ import util
 
 WIDTH = 1725
 HEIGHT = 970
-gamestate = [-1, -1]
 deathpoints = []
 win = pygame.display.set_mode((WIDTH, HEIGHT))
 conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -13,6 +12,7 @@ conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def init():
     pygame.display.set_caption("Tron")
+    pygame.font.init()
     server = socket.gethostbyname(socket.gethostname())
     port = 5555
     addr = (server, port)
@@ -21,14 +21,11 @@ def init():
     global p
     p = Player(data[0], data[1], 10, 10, (0, 255, 0))
     deathpoints.append((p.x, p.y))
-    global pIndex
     if (p.x) == 15:
         p.vx = 5
-        pIndex = 0
     else:
         p.vx = -5
-        pIndex = 1
-    gamestate[pIndex] = data[2]
+    p.gamestate = 1
     global p2
     p2 = Player(-30, -30, 10, 10, (255, 0, 0))
     gameloop()
@@ -43,31 +40,52 @@ def gameloop():
             if event.type == pygame.QUIT:
                 running = False
                 pygame.quit()
-        if gamestate[0] == 0 and gamestate[1] == 0:
+        if p.gamestate == 1 and p2.gamestate == 1:
+            p.move()
             update()
             collisions()
             render()
         else:
-            print("waiting for player 2")
+            update()
+            render()
 
 
 def update():
-    util.sendData(conn, (p.x, p.y, gamestate[pIndex]))
+    p.update()
+    util.sendData(conn, (p.x, p.y, p.gamestate))
     data = util.recvData(conn)
     p2.x = data[0]
     p2.y = data[1]
+    p2.gamestate = data[2]
     p2.update()
-    p.move()
 
 
 def collisions():
-    return
+    if (p.x, p.y) not in deathpoints and p.x >= 0 and p.x <= WIDTH - p.width and p.y >= 0 and p.y <= HEIGHT - p.height:
+        deathpoints.append((p.x, p.y))
+        deathpoints.append((p2.x, p2.y))
+    else:
+        p.gamestate = 2
 
 
 def render():
     p.draw(win)
     p2.draw(win)
+    if p.gamestate == 2:
+        drawText("impact", (255, 255, 255), "You Lose!!!",
+                 (WIDTH / 2, HEIGHT / 2), 60)
+    elif p2.gamestate == 2:
+        drawText("impact", (255, 255, 255), "You Win!!!",
+                 (WIDTH / 2, HEIGHT / 2), 60)
     pygame.display.update()
+
+
+def drawText(font, color, text, pos, size):
+    f = pygame.font.SysFont(font, size)
+    s = f.render(text, True, color)
+    t = s.get_rect()
+    t.center = pos
+    win.blit(s, t)
 
 
 class Player():
@@ -76,6 +94,7 @@ class Player():
         self.y = y
         self.vx = 0
         self.vy = 0
+        self.gamestate = 0
         self.width = width
         self.height = height
         self.color = color
@@ -102,7 +121,6 @@ class Player():
                 self.vx = 0
         self.x += self.vx
         self.y += self.vy
-        self.update()
 
     def update(self):
         self.rect = (self.x, self.y, self.width, self.height)
