@@ -1,11 +1,11 @@
 import pygame
 import socket
 import util
+import time
 
 
 WIDTH = 1725
 HEIGHT = 970
-deathpoints = []
 win = pygame.display.set_mode((WIDTH, HEIGHT))
 conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -17,18 +17,25 @@ def init():
     port = 5555
     addr = (server, port)
     conn.connect(addr)
-    data = util.recvData(conn)
+    global startPos
+    startPos = util.recvData(conn)
+    reset()
+    gameloop()
+
+
+def reset():
     global p
-    p = Player(data[0], data[1], 10, 10, (0, 255, 0))
+    p = Player(startPos[0], startPos[1], 10, 10, (0, 255, 0))
+    global deathpoints
+    deathpoints = []
     deathpoints.append((p.x, p.y))
-    if (p.x) == 15:
+    if p.x == 15:
         p.vx = 5
     else:
         p.vx = -5
     p.gamestate = 1
     global p2
     p2 = Player(-30, -30, 10, 10, (255, 0, 0))
-    gameloop()
 
 
 def gameloop():
@@ -40,14 +47,24 @@ def gameloop():
             if event.type == pygame.QUIT:
                 running = False
                 pygame.quit()
-        if p.gamestate == 1 and p2.gamestate == 1:
+        if p.gamestate == 2 and p2.gamestate == 2:
             p.move()
             update()
             collisions()
             render()
+        elif p.gamestate == 1 and p2.gamestate == 1:
+            pygame.draw.rect(win, (0, 0, 0), (0, 0, WIDTH, HEIGHT))
+            p.gamestate = 2
+            time.sleep(1)
+        elif p.gamestate == 4:
+            pygame.draw.rect(win, (0, 0, 0), (0, 0, WIDTH, HEIGHT))
+            reset()
         else:
             update()
             render()
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_ESCAPE]:
+                p.gamestate = 4
 
 
 def update():
@@ -65,17 +82,20 @@ def collisions():
         deathpoints.append((p.x, p.y))
         deathpoints.append((p2.x, p2.y))
     else:
-        p.gamestate = 2
+        p.gamestate = 3
 
 
 def render():
     p.draw(win)
     p2.draw(win)
-    if p.gamestate == 2:
+    if p.gamestate == 3:
         drawText("impact", (255, 255, 255), "You Lose!!!",
                  (WIDTH / 2, HEIGHT / 2), 60)
-    elif p2.gamestate == 2:
+    elif p2.gamestate == 3:
         drawText("impact", (255, 255, 255), "You Win!!!",
+                 (WIDTH / 2, HEIGHT / 2), 60)
+    elif p.gamestate == 1 and p2.gamestate != 1:
+        drawText("impact", (255, 255, 255), "Waiting for Player 2...",
                  (WIDTH / 2, HEIGHT / 2), 60)
     pygame.display.update()
 
