@@ -7,4 +7,4 @@ Controls:
 - Arrows keys to change direction
 - Escape to reset game
     - Both players must press it for the game to restart
-    - Does not work in game
+    - Does not work while players r moving
