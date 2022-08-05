@@ -1,41 +1,40 @@
 import socket
 import util
-from _thread import *
+import threading
 
-clientstate = [(15, 15, 0), (1700, 945, 0)]
+data = [(-15, -15, -1), (-15, -15, -1)]
 
 
-def threaded_client(conn, pIndex):
-    util.sendData(conn, clientstate[pIndex])
+def serverloop(conn, pIndex):
+    conn.sendall(str.encode(str(pIndex)))
     while True:
-        try:
-            clientstate[pIndex] = util.recvData(conn)
-            if not clientstate[pIndex]:
-                break
-            else:
-                if pIndex == 1:
-                    reply = clientstate[0]
-                else:
-                    reply = clientstate[1]
-            util.sendData(conn, reply)
-        except:
+        data[pIndex] = util.recvData(conn)
+        if data[pIndex] == (-15, -15, -1):
             break
+        else:
+            if pIndex == 1:
+                reply = data[0]
+            else:
+                reply = data[1]
+            util.sendData(conn, reply)
     conn.close()
 
 
 def main():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server = ""
     port = 5555
-    currentPlayer = 0
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         s.bind((server, port))
     except socket.error as e:
         print(str(e))
     s.listen(2)
-    while True:
+    currentPlayer = 0
+    while currentPlayer < 2:
         conn, addr = s.accept()
-        start_new_thread(threaded_client, (conn, currentPlayer))
+        thread = threading.Thread(
+            target=serverloop, args=(conn, currentPlayer))
+        thread.start()
         currentPlayer += 1
 
 

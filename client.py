@@ -1,143 +1,181 @@
-import pygame
-import socket
 import util
-import time
+import socket
+import pygame
+from pygame.locals import (
+    K_UP, K_DOWN, K_LEFT, K_RIGHT, K_SPACE, QUIT)
+pygame.init()
 
 
-WIDTH = 1725
-HEIGHT = 970
-win = pygame.display.set_mode((WIDTH, HEIGHT))
-conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+class Client():
+    def __init__(self, width, height):
+        self.screen = pygame.display.set_mode((width, height))
+        pygame.display.set_caption("Tron")
+        self.connectToServer()
+        self.loadimages()
+        self.options = 0
+        self.p = Player(util.GREEN)
+        self.p2 = Player(util.RED)
+        self.p.state = util.STARTSCREEN
+        self.pIndex = int(self.conn.recv(1024).decode())
+        self.running = True
+        self.gameloop()
 
+    def connectToServer(self):
+        self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server = socket.gethostbyname(socket.gethostname())
+        port = 5555
+        addr = (server, port)
+        self.conn.connect(addr)
 
-def init():
-    pygame.display.set_caption("Tron")
-    pygame.font.init()
-    server = socket.gethostbyname(socket.gethostname())
-    port = 5555
-    addr = (server, port)
-    conn.connect(addr)
-    global startPos
-    startPos = util.recvData(conn)
-    reset()
-    gameloop()
+    def loadimages(self):
+        self.startscreen = pygame.image.load("start_page.jpg")
+        self.endscreen1 = pygame.image.load("end_page1.png")
+        self.endscreen2 = pygame.image.load("end_page2.png")
+        self.endscreen3 = pygame.image.load("end_page3.png")
+        self.endscreen4 = pygame.image.load("end_page4.png")
 
+    def gameloop(self):
+        clock = pygame.time.Clock()
+        while self.running:
+            clock.tick(30)
+            for event in pygame.event.get():
+                if event.type == QUIT:
+                    self.running = False
+            self.process()
+            self.update()
+            self.render()
+        util.sendData(self.conn, (-15, -15, -1))
+        pygame.quit()
 
-def reset():
-    global p
-    p = Player(startPos[0], startPos[1], 10, 10, (0, 255, 0))
-    global deathpoints
-    deathpoints = []
-    deathpoints.append((p.x, p.y))
-    if p.x == 15:
-        p.vx = 5
-    else:
-        p.vx = -5
-    p.gamestate = 1
-    global p2
-    p2 = Player(-30, -30, 10, 10, (255, 0, 0))
+    def process(self):
+        keys = pygame.key.get_pressed()
+        if self.p.state == util.STARTSCREEN:
+            if keys[K_UP]:
+                self.options = 0
+            elif keys[K_DOWN]:
+                self.options = 1
+            if keys[K_SPACE]:
+                if self.options == 0:
+                    self.reset()
+                else:
+                    self.running = False
+        elif self.p.state == util.WIN or self.p.state == util.LOSE:
+            if keys[K_LEFT]:
+                self.options = 0
+            elif keys[K_RIGHT]:
+                self.options = 1
+            if keys[K_SPACE]:
+                if self.options == 0:
+                    self.reset()
+                else:
+                    self.running = False
+        elif self.p.state == util.INGAME and self.p2.state == util.INGAME:
+            self.p.move(keys)
+            self.p.update()
+            self.p2.update()
+            if ((self.p.x, self.p.y) not in self.deathpoints and self.p.x >= util.WALL and self.p.x <= util.WIDTH - self.p.width - util.WALL
+                    and self.p.y >= util.WALL and self.p.y <= util.HEIGHT - self.p.height - util.WALL):
+                self.deathpoints.append((self.p.x, self.p.y))
+                self.deathpoints.append((self.p2.x, self.p2.y))
+            else:
+                self.p.state = util.LOSE
+        elif self.p.state == util.INGAME and self.p2.state == util.LOSE:
+            self.p.state = util.WIN
+        elif self.p.state == util.WAITING and self.p2.state == util.WAITING:
+            self.p.state = util.INGAME
+            self.p.x = util.STARTPOS[self.pIndex][0]
+            self.p.y = util.STARTPOS[self.pIndex][1]
+            pygame.time.delay(500)
 
+    def update(self):
+        util.sendData(self.conn, (self.p.x, self.p.y, self.p.state))
+        data = util.recvData(self.conn)
+        self.p2.state = data[2]
+        if self.p.state == util.INGAME and self.p2.state == util.INGAME:
+            self.p2.x = data[0]
+            self.p2.y = data[1]
 
-def gameloop():
-    running = True
-    clock = pygame.time.Clock()
-    while running:
-        clock.tick(60)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-                pygame.quit()
-        if p.gamestate == 2 and p2.gamestate == 2:
-            p.move()
-            update()
-            collisions()
-            render()
-        elif p.gamestate == 1 and p2.gamestate == 1:
-            pygame.draw.rect(win, (0, 0, 0), (0, 0, WIDTH, HEIGHT))
-            p.gamestate = 2
-            time.sleep(1)
-        elif p.gamestate == 4:
-            pygame.draw.rect(win, (0, 0, 0), (0, 0, WIDTH, HEIGHT))
-            reset()
+    def render(self):
+        if self.p.state == util.STARTSCREEN:
+            pygame.draw.rect(self.screen, util.BLACK,
+                             (0, 0, util.WIDTH, util.HEIGHT))
+            self.screen.blit(self.startscreen, (0, 0))
+            if self.options == 0:
+                pygame.draw.rect(self.screen, util.WHITE,
+                                 (315, 218, 245, 100), 2)
+            else:
+                pygame.draw.rect(self.screen, util.WHITE,
+                                 (315, 338, 245, 100), 2)
+        elif self.p.state == util.INGAME or self.p.state == util.WAITING:
+            self.p.draw(self.screen)
+            self.p2.draw(self.screen)
+            pygame.draw.rect(self.screen, util.BLUE,
+                             (0, 0, util.WALL, util.HEIGHT))
+            pygame.draw.rect(self.screen, util.BLUE,
+                             (util.WIDTH - util.WALL, 0, util.WALL, util.HEIGHT))
+            pygame.draw.rect(self.screen, util.BLUE,
+                             (util.WALL, 0, util.WIDTH - util.WALL, util.WALL))
+            pygame.draw.rect(self.screen, util.BLUE,
+                             (util.WALL, util.HEIGHT - util.WALL, util.WIDTH - util.WALL, util.WALL))
+        elif self.p.state == util.WIN:
+            if self.options == 0:
+                self.screen.blit(self.endscreen1, (0, 0))
+            else:
+                self.screen.blit(self.endscreen2, (0, 0))
+        elif self.p.state == util.LOSE:
+            if self.options == 0:
+                self.screen.blit(self.endscreen3, (0, 0))
+            else:
+                self.screen.blit(self.endscreen4, (0, 0))
+        pygame.display.update()
+
+    def reset(self):
+        pygame.draw.rect(self.screen, util.BLACK,
+                         (0, 0, util.WIDTH, util.HEIGHT))
+        self.deathpoints = [util.STARTPOS[0], util.STARTPOS[1]]
+        if self.pIndex:
+            self.p.vx = -util.SPEED_LENGTH
         else:
-            update()
-            render()
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_ESCAPE]:
-                p.gamestate = 4
-
-
-def update():
-    p.update()
-    util.sendData(conn, (p.x, p.y, p.gamestate))
-    data = util.recvData(conn)
-    p2.x = data[0]
-    p2.y = data[1]
-    p2.gamestate = data[2]
-    p2.update()
-
-
-def collisions():
-    if (p.x, p.y) not in deathpoints and p.x >= 0 and p.x <= WIDTH - p.width and p.y >= 0 and p.y <= HEIGHT - p.height:
-        deathpoints.append((p.x, p.y))
-        deathpoints.append((p2.x, p2.y))
-    else:
-        p.gamestate = 3
-
-
-def render():
-    p.draw(win)
-    p2.draw(win)
-    if p.gamestate == 3:
-        drawText("impact", (255, 255, 255), "You Lose!!!",
-                 (WIDTH / 2, HEIGHT / 2), 60)
-    elif p2.gamestate == 3:
-        drawText("impact", (255, 255, 255), "You Win!!!",
-                 (WIDTH / 2, HEIGHT / 2), 60)
-    elif p.gamestate == 1 and p2.gamestate != 1:
-        drawText("impact", (255, 255, 255), "Waiting for Player 2...",
-                 (WIDTH / 2, HEIGHT / 2), 60)
-    pygame.display.update()
-
-
-def drawText(font, color, text, pos, size):
-    f = pygame.font.SysFont(font, size)
-    s = f.render(text, True, color)
-    t = s.get_rect()
-    t.center = pos
-    win.blit(s, t)
+            self.p.vx = util.SPEED_LENGTH
+        self.p.vy = 0
+        self.p.x = -15
+        self.p.y = -15
+        self.p.update()
+        self.p2.x = -15
+        self.p2.y = -15
+        self.p2.update()
+        self.p.state = util.WAITING
 
 
 class Player():
-    def __init__(self, x, y, width, height, color):
-        self.x = x
-        self.y = y
+    def __init__(self, color):
+        self.x = -15
+        self.y = -15
         self.vx = 0
         self.vy = 0
-        self.gamestate = 0
-        self.width = width
-        self.height = height
+        self.width = util.SPEED_LENGTH
+        self.height = util.SPEED_LENGTH
         self.color = color
         self.rect = (self.x, self.y, self.width, self.height)
+        self.state = -1
 
-    def draw(self, win):
-        pygame.draw.rect(win, self.color, self.rect)
+    def draw(self, screen):
+        pygame.draw.rect(screen, self.color, self.rect)
 
-    def move(self):
-        keys = pygame.key.get_pressed()
-        if self.vx == 0 and keys[pygame.K_UP] == False and keys[pygame.K_DOWN] == False:
-            if keys[pygame.K_RIGHT]:
-                self.vx = 5
+    def move(self, keys):
+        if self.vx == 0 and keys[K_UP] == False and keys[K_DOWN] == False:
+            if keys[K_RIGHT]:
+                self.vx = util.SPEED_LENGTH
                 self.vy = 0
-            elif keys[pygame.K_LEFT]:
-                self.vx = -5
+            elif keys[K_LEFT]:
+                self.vx = -util.SPEED_LENGTH
                 self.vy = 0
-        elif self.vy == 0 and keys[pygame.K_RIGHT] == False and keys[pygame.K_LEFT] == False:
-            if keys[pygame.K_DOWN]:
-                self.vy = 5
+        elif self.vy == 0 and keys[K_RIGHT] == False and keys[K_LEFT] == False:
+            if keys[K_DOWN]:
+                self.vy = util.SPEED_LENGTH
                 self.vx = 0
-            elif keys[pygame.K_UP]:
-                self.vy = -5
+            elif keys[K_UP]:
+                self.vy = -util.SPEED_LENGTH
                 self.vx = 0
         self.x += self.vx
         self.y += self.vy
@@ -147,7 +185,7 @@ class Player():
 
 
 def main():
-    init()
+    client = Client(util.WIDTH, util.HEIGHT)
 
 
 main()
