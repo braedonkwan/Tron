@@ -11,6 +11,8 @@ Start Menu:
 In-Game:
     - Goal of the game is to make your opponent crash into you or the walls
     - Arrows keys to change direction
+    - Space to teleport
+        - Only allowed 3 teleports
 ---------------------------------------------------------------------------------------
 Win/Lose Screen:
     - Left and right arrow keys to select your option

@@ -3,11 +3,11 @@ import socket
 import pygame
 from pygame.locals import (
     K_UP, K_DOWN, K_LEFT, K_RIGHT, K_SPACE, QUIT)
-pygame.init()
 
 
 class Client():
     def __init__(self, width, height):
+        pygame.init()
         self.screen = pygame.display.set_mode((width, height))
         pygame.display.set_caption("Tron")
         self.connectToServer()
@@ -117,6 +117,7 @@ class Client():
                              (util.WALL, 0, util.WIDTH - util.WALL, util.WALL))
             pygame.draw.rect(self.screen, util.BLUE,
                              (util.WALL, util.HEIGHT - util.WALL, util.WIDTH - util.WALL, util.WALL))
+            self.drawText("arial", "Teleports: " + str(self.p.teleports), util.WHITE, (0, 0), 12)
         elif self.p.state == util.WIN:
             if self.options == 0:
                 self.screen.blit(self.endscreen1, (0, 0))
@@ -129,6 +130,11 @@ class Client():
                 self.screen.blit(self.endscreen4, (0, 0))
         pygame.display.update()
 
+    def drawText(self, font, msg, color, pos, size):
+        font = pygame.font.SysFont(font, size)
+        img = font.render(msg, True, color)
+        self.screen.blit(img, pos)
+
     def reset(self):
         pygame.draw.rect(self.screen, util.BLACK,
                          (0, 0, util.WIDTH, util.HEIGHT))
@@ -140,6 +146,7 @@ class Client():
         self.p.vy = 0
         self.p.x = -15
         self.p.y = -15
+        self.p.teleports = 3
         self.p.update()
         self.p2.x = -15
         self.p2.y = -15
@@ -158,12 +165,25 @@ class Player():
         self.color = color
         self.rect = (self.x, self.y, self.width, self.height)
         self.state = -1
+        self.teleports = 3
+        self.released = True
 
     def draw(self, screen):
         pygame.draw.rect(screen, self.color, self.rect)
 
     def move(self, keys):
-        if self.vx == 0 and keys[K_UP] == False and keys[K_DOWN] == False:
+        if keys[K_SPACE] and self.teleports != 0 and self.released:
+            if self.vx == util.SPEED_LENGTH:
+                self.x += util.TELE_DIST
+            elif self.vx == -util.SPEED_LENGTH:
+                self.x -= util.TELE_DIST
+            elif self.vy == util.SPEED_LENGTH:
+                self.y += util.TELE_DIST
+            else:
+                self.y -= util.TELE_DIST
+            self.teleports -= 1
+            self.released = False
+        elif self.vx == 0 and keys[K_UP] == False and keys[K_DOWN] == False:
             if keys[K_RIGHT]:
                 self.vx = util.SPEED_LENGTH
                 self.vy = 0
@@ -177,6 +197,8 @@ class Player():
             elif keys[K_UP]:
                 self.vy = -util.SPEED_LENGTH
                 self.vx = 0
+        if self.released == False and keys[K_SPACE] == False:
+            self.released = True
         self.x += self.vx
         self.y += self.vy
 
