@@ -1,3 +1,6 @@
+- Error where opposing player may teleport if client takes to long to update and recieve coordinates
+- Will be patched soon once pygame releases support for python 3.11
+
 Setup Game:
     - Run the server.py file on any computer
     - Then run the client.py file on two different computers
