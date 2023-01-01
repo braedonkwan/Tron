@@ -1,4 +1,4 @@
-- Error where opposing player may teleport if client takes to long to update and recieve coordinates
+- Error where opposing player may "teleport" if client takes to long to update and recieve coordinates
 - Will be patched soon once pygame releases support for python 3.11
 
 Setup Game:
