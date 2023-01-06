@@ -117,7 +117,8 @@ class Client():
                              (util.WALL, 0, util.WIDTH - util.WALL, util.WALL))
             pygame.draw.rect(self.screen, util.BLUE,
                              (util.WALL, util.HEIGHT - util.WALL, util.WIDTH - util.WALL, util.WALL))
-            self.drawText("arial", "Teleports: " + str(self.p.teleports), util.WHITE, (0, 0), 12)
+            self.drawText("arial", "Teleports: " +
+                          str(self.p.teleports), util.WHITE, (0, 0), 12)
         elif self.p.state == util.WIN:
             if self.options == 0:
                 self.screen.blit(self.endscreen1, (0, 0))
