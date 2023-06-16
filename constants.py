@@ -1,0 +1,19 @@
+from socket import gethostbyname, gethostname
+
+# colors
+BLUE, GREEN, RED, BLACK, WHITE = (0, 0, 255), (0, 255, 0), (255, 0, 0), (0, 0, 0), (255, 255, 255)
+
+# client states
+STARTSCREEN, WAITING, INGAME, ENDSCREEN = 0, 1, 2, 3
+
+# server states
+DISCONNECTED, CONNECTED = 0, 1
+
+# game properties
+HOST, PORT = gethostbyname(gethostname()), 5555
+SCREEN_WIDTH, SCREEN_HEIGHT = 900, 500
+SPEED = 5
+PLAYER_SIZE, WALL_SIZE = SPEED, 15
+START_DIST, TELE_DIST = 15, 50
+STARTPOS = ((START_DIST + WALL_SIZE, START_DIST + WALL_SIZE), (SCREEN_WIDTH - START_DIST -
+            PLAYER_SIZE - WALL_SIZE, SCREEN_HEIGHT - START_DIST - PLAYER_SIZE - WALL_SIZE))
