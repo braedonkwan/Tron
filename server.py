@@ -1,87 +1,88 @@
 import socket
 import threading
-import time
 from constants import (
-    ADDRESS,
-    PORT,
-    MAXCLIENTS,
-    WAITTIME,
-    DISCONNECTED,
+    WAITING,
+    OFFLINE,
     PLAYER1,
     PLAYER2,
+    QUEUE_SIZE,
+    MAX_PLAYERS,
+    PORT,
+    STATE,
 )
 
+connection_count = 0
+player_properties = [str(OFFLINE), str(OFFLINE)]
 lock = threading.Lock()
-player_properties = [str(DISCONNECTED), str(DISCONNECTED)]
-player_count = 0
 
 
-def start_server() -> None:
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((ADDRESS, PORT))
-    server_socket.listen(MAXCLIENTS)
+def server_loop(server_socket: socket.socket) -> None:
+    global connection_count
     while True:
-        if read_player_count() < MAXCLIENTS:
-            print("Waiting for client...")
-            client_socket, address = server_socket.accept()
+        print("Waiting for client...")
+        client_socket, address = server_socket.accept()
+        if connection_count < MAX_PLAYERS:
+            with lock:
+                connection_count += 1
             print("Accepted connection from {}:{}".format(*address))
-            thread = threading.Thread(
-                target=client_handler,
-                args=(client_socket, read_player_count()),
-            )
+            thread = threading.Thread(target=client_handler, args=(client_socket,))
             thread.start()
-            temp = read_player_count() + 1
-            set_player_count(temp)
         else:
-            print("Server is full...")
-            time.sleep(WAITTIME)
+            print("Declined connection from {}:{}".format(*address))
 
 
-def client_handler(client_socket, playerID) -> None:
-    global player_count
-    client_socket.sendall(str(playerID).encode("utf-8"))
-    while True:
-        data_recv = client_socket.recv(1024).decode("utf-8")
-        if not data_recv:
-            break
-        with lock:
-            player_properties[playerID] += data_recv
-            if playerID == PLAYER1:
-                client_socket.sendall(player_properties[PLAYER2].encode("utf-8"))
-                player_properties[PLAYER2] = player_properties[PLAYER2][0]
-            else:
-                client_socket.sendall(player_properties[PLAYER1].encode("utf-8"))
-                player_properties[PLAYER1] = player_properties[PLAYER1][0]
-    print("Player " + str(playerID + 1) + " has disconnected.")
+def set_player_ID() -> int:
     with lock:
-        player_count -= 1
-        player_properties[playerID] = str(DISCONNECTED)
+        if player_properties[PLAYER1] == str(OFFLINE):
+            player_properties[PLAYER1] = str(WAITING)
+            return PLAYER1
+        else:
+            player_properties[PLAYER2] = str(WAITING)
+            return PLAYER2
+
+
+def client_handler(client_socket: socket.socket) -> None:
+    global connection_count
+    player_id = set_player_ID()
+    client_socket.sendall(str(player_id).encode("utf-8"))
+    while True:
+        try:
+            data_recv = client_socket.recv(1024).decode("utf-8")
+            if not data_recv:
+                break
+            update_properties(player_id, data_recv)
+            update_client(player_id, client_socket)
+        except:
+            break
+    print("Player " + str(player_id + 1) + " has disconnected.")
+    with lock:
+        connection_count -= 1
+        player_properties[player_id] = str(OFFLINE)
     client_socket.close()
 
 
-def set_player_count(value) -> None:
+def update_properties(player_id: int, data_recv: str) -> None:
     with lock:
-        global player_count
-        player_count = value
+        player_properties[player_id] = (
+            data_recv[STATE]
+            + player_properties[player_id][STATE + 1 :]
+            + data_recv[STATE + 1 :]
+        )
 
 
-def read_player_count() -> int:
+def update_client(player_id: int, client_socket: socket.socket) -> None:
     with lock:
-        global player_count
-        return player_count
-
-
-def set_player_property(player, value) -> None:
-    with lock:
-        global player_properties
-        player_properties[player] = value
-
-
-def read_player_property(player) -> str:
-    with lock:
-        global player_properties
-        return player_properties[player]
+        if player_id == PLAYER1:
+            client_socket.sendall(player_properties[PLAYER2].encode("utf-8"))
+            player_properties[PLAYER2] = player_properties[PLAYER2][STATE]
+        else:
+            client_socket.sendall(player_properties[PLAYER1].encode("utf-8"))
+            player_properties[PLAYER1] = player_properties[PLAYER1][STATE]
 
 
 if __name__ == "__main__":
-    start_server()
+    address = socket.gethostbyname(socket.gethostname())
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((address, PORT))
+    server_socket.listen(QUEUE_SIZE)
+    server_loop(server_socket)
